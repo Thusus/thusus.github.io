@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>KidsTube</title>
+<style>
+  :root {
+    --bg: #11151c;
+    --tile: #1c2230;
+    --tile-hover: #27304370;
+    --text: #f2f5fa;
+    --accent: #ffcc33;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow-x: hidden;
+  }
+  header {
+    padding: 18px 22px 4px; font-size: clamp(20px, 3vw, 30px);
+    font-weight: 800; letter-spacing: 0.5px;
+  }
+  header .dot { color: var(--accent); }
+  header .who { opacity: 0.85; font-weight: 700; }
+  header.switchable { cursor: pointer; }
+  #note { padding: 0 22px; font-size: 14px; opacity: 0.6; min-height: 0; }
+
+  /* Child picker */
+  #picker { display: none; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px; padding: 24px 22px 40px; }
+  #picker.show { display: grid; }
+  .namebtn {
+    border: none; border-radius: 24px; padding: 46px 20px;
+    font-size: clamp(24px, 4vw, 40px); font-weight: 800; color: #0b0f14;
+    cursor: pointer; text-align: center; transition: transform 0.12s ease;
+  }
+  .namebtn:active { transform: scale(0.96); }
+  @media (hover: hover) { .namebtn:hover { transform: translateY(-3px); } }
+
+  /* Test tools (only shown with ?test=1) */
+  #testbar {
+    display: none; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin: 8px 22px; padding: 10px 14px;
+    background: #0d1b2a; border: 1px solid #24425f; border-radius: 12px; font-size: 14px;
+  }
+  #testbar input[type=date] { font-size: 15px; padding: 4px 8px; border-radius: 8px; border: 1px solid #35506b; background: #0a121b; color: var(--text); }
+  #testbar button { font-size: 14px; padding: 5px 12px; border-radius: 8px; border: 1px solid #35506b; background: #16283b; color: var(--text); cursor: pointer; }
+  #debug {
+    display: none; margin: 4px 22px 20px; padding: 12px 14px;
+    background: #0d1b2a; border: 1px solid #24425f; border-radius: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap;
+  }
+
+  #grid { display: none; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; padding: 16px 22px 40px; }
+  #grid.show { display: grid; }
+  .tile {
+    background: var(--tile); border: none; border-radius: 18px; overflow: hidden;
+    cursor: pointer; padding: 0; color: var(--text); text-align: left;
+    transition: transform 0.12s ease, background 0.12s ease; display: flex; flex-direction: column;
+  }
+  .tile:active { transform: scale(0.97); }
+  @media (hover: hover) { .tile:hover { transform: translateY(-3px); background: var(--tile-hover); } }
+  .tile .thumb { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: #000; }
+  .tile .label { padding: 12px 14px 16px; font-size: clamp(16px, 2vw, 20px); font-weight: 700; line-height: 1.25; }
+
+  /* Player overlay */
+  #overlay { position: fixed; inset: 0; background: #000; display: none; z-index: 50; }
+  #overlay.show { display: block; }
+  #player, #overlay iframe { width: 100%; height: 100%; border: 0; display: block; }
+  #close {
+    position: fixed; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right));
+    z-index: 60; width: 64px; height: 64px; border-radius: 50%; border: none;
+    background: #000000aa; color: #fff; font-size: 34px; line-height: 1; cursor: pointer; display: none;
+  }
+  #overlay.show ~ #close { display: block; }
+</style>
+</head>
+<body>
+
+<header id="header">KidsTube <span class="dot">&#9679;</span></header>
+<div id="note"></div>
+
+<div id="testbar">
+  <span>Test date:</span>
+  <input type="date" id="testdate">
+  <button id="todayBtn">Today</button>
+  <span style="opacity:.6">(remove ?test=1 for the kid view)</span>
+</div>
+<div id="debug"></div>
+
+<div id="picker"></div>
+<div id="grid"></div>
+
+<div id="overlay"><div id="player"></div></div>
+<button id="close" aria-label="Back">&times;</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+/* =========================================================================
+   CONFIG  —  the only part you edit.
+
+   Two published CSV links (File > Share > Publish to web > CSV), one per tab.
+
+   VIDEOS sheet — one row per video, WITH a header row:
+        Child , Channel , Type , Title , ID
+     - Child  = which kid this video belongs to. Blank = shown to ALL kids.
+                If 2+ distinct names exist, an opening name-picker appears.
+     - Type   = "evergreen" or "treat" (a property of the channel; fill down).
+     - ID     = 11-char YouTube id, e.g. 0sHu99vdz-A. A "URL" column works too.
+     - Row order within a channel = the cycle order (video #1, #2, #3 ...).
+
+   SETTINGS sheet — either layout works:
+     (a) setting names across the top row, values beneath (treat days can be
+         stacked down the column):
+            Evergreen videos per day | Total videos per day | Days for Treat videos
+            2                        | 10                   | Wednesday
+                                     |                      | Sunday
+     (b) setting name in column A, value in column B:
+            Evergreen videos per day , 2
+            Total videos per day     , 10
+            Days for Treat videos    , Wednesday, Sunday
+
+   Test helpers:  ?test=1  shows a date picker + debug readout.
+                  ?date=YYYY-MM-DD  jumps to a date.
+                  ?child=Name  pre-selects a child (skips the picker).
+   ========================================================================= */
+
+const VIDEOS_CSV_URL   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv_zZ3Ti03lvqwCYtstvOLNPPzlVc7PsQpxzfuybhU0tg9YsF08bAeHGMWbNzGvLxxIZauiA_8tQSt/pub?gid=0&single=true&output=csv";
+const SETTINGS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv_zZ3Ti03lvqwCYtstvOLNPPzlVc7PsQpxzfuybhU0tg9YsF08bAeHGMWbNzGvLxxIZauiA_8tQSt/pub?gid=493100322&single=true&output=csv";
+
+const DEFAULT_SETTINGS = { evergreenPerDay: 2, totalPerDay: 4, treatDays: [6, 0] }; // Sat, Sun
+
+// Built-in demo (real Jelle's Marble Runs videos) with two kids, used only if
+// VIDEOS_CSV_URL is blank.
+const DEMO_VIDEOS = [
+  { child: "Sam", channel: "Marble Rally", type: "evergreen", title: "Marble Rally: Race 1", id: "SKDJF3cB438" },
+  { child: "Sam", channel: "Marble Rally", type: "evergreen", title: "Marble Rally: Round 2", id: "1MlyJQCv_Lo" },
+  { child: "Ada", channel: "Sand Marbles", type: "evergreen", title: "Sand Marble Race: Round 1", id: "0sHu99vdz-A" },
+  { child: "Ada", channel: "Sand Marbles", type: "treat",     title: "Sand Marble Practice", id: "eBZL80a8pKs" },
+  { child: "",    channel: "Marble Rally", type: "evergreen", title: "Marble Rally: Round 3 (all kids)", id: "4ajEgMCyxlU" },
+];
+
+const NAME_COLORS = ["#ffcc33","#57d1a0","#68b6ff","#ff8fa3","#c39bff","#ffb570","#8fe3ff","#b6e36b"];
+
+/* ----------------------- nothing below needs editing ---------------------- */
+
+const grid = document.getElementById("grid");
+const picker = document.getElementById("picker");
+const note = document.getElementById("note");
+const overlay = document.getElementById("overlay");
+const closeBtn = document.getElementById("close");
+const headerEl = document.getElementById("header");
+
+let RAW = [];          // raw video rows
+let SETTINGS = {};
+let CHILDREN = [];     // distinct child names
+
+/* ---------- date helpers (all local time) ---------- */
+function effectiveDate() {
+  const p = new URLSearchParams(location.search).get("date");
+  if (p) { const [y, m, d] = p.split("-").map(Number); if (y && m && d) return new Date(y, m - 1, d); }
+  const n = new Date();
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+}
+function dayOfYear(d) { return Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000); }
+function dateSeed(d) { return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const WD = { sunday:0,monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6,
+             sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6 };
+function parseTreatDays(str) { return (str || "").split(",").map(x => WD[x.trim().toLowerCase()]).filter(x => x !== undefined); }
+
+/* ---------- seeded randomness ---------- */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function seededShuffle(arr, rng) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function rotate(arr, off) {
+  if (!arr.length) return arr;
+  off = ((off % arr.length) + arr.length) % arr.length;
+  return arr.slice(off).concat(arr.slice(0, off));
+}
+
+/* ---------- parsing ---------- */
+function extractId(row) {
+  if (row.id && String(row.id).trim()) return String(row.id).trim();
+  if (row.url) { const m = String(row.url).match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/); if (m) return m[1]; }
+  return null;
+}
+function buildChannels(rows) {
+  const order = [], byName = new Map();
+  rows.forEach(r => {
+    const id = extractId(r); if (!id) return;
+    const name = (r.channel || "Unknown").toString().trim() || "Unknown";
+    const type = ((r.type || "").toString().trim().toLowerCase() === "treat") ? "treat" : "evergreen";
+    const title = (r.title || "Video").toString().trim() || "Video";
+    if (!byName.has(name)) { const c = { name, type, videos: [] }; byName.set(name, c); order.push(c); }
+    byName.get(name).videos.push({ title, id });
+  });
+  return order;
+}
+function distinctChildren(rows) {
+  const seen = new Set(), out = [];
+  rows.forEach(r => {
+    const c = (r.child || "").toString().trim();
+    if (c && !seen.has(c.toLowerCase())) { seen.add(c.toLowerCase()); out.push(c); }
+  });
+  return out;
+}
+function rowsForChild(rows, child) {
+  if (!child) return rows;
+  const t = child.toLowerCase();
+  return rows.filter(r => { const c = (r.child || "").toString().trim(); return c === "" || c.toLowerCase() === t; });
+}
+
+const SETTING_KEYS = { evergreen: "evergreen videos per day", total: "total videos per day", treat: "days for treat videos" };
+function parseSettings(grid) {
+  const s = { ...DEFAULT_SETTINGS };
+  if (!grid || !grid.length) return s;
+  const G = grid.map(row => (row || []).map(c => (c == null ? "" : String(c)).trim()));
+  const header = G[0].map(x => x.toLowerCase());
+  const known = header.filter(h => Object.values(SETTING_KEYS).includes(h)).length;
+  const setInt = (raw, key) => { const n = parseInt(raw, 10); if (!isNaN(n)) s[key] = n; };
+  if (known >= 2) {                                  // column-oriented
+    const col = name => header.indexOf(name);
+    const firstBelow = c => { for (let r = 1; r < G.length; r++) { if (c >= 0 && G[r][c]) return G[r][c]; } return ""; };
+    const allBelow   = c => { const o = []; for (let r = 1; r < G.length; r++) { if (c >= 0 && G[r][c]) o.push(G[r][c]); } return o; };
+    setInt(firstBelow(col(SETTING_KEYS.evergreen)), "evergreenPerDay");
+    setInt(firstBelow(col(SETTING_KEYS.total)), "totalPerDay");
+    const t = allBelow(col(SETTING_KEYS.treat));
+    if (t.length) s.treatDays = parseTreatDays(t.join(","));
+  } else {                                           // key/value rows
+    G.forEach(row => {
+      const k = (row[0] || "").toLowerCase();
+      const rest = row.slice(1).filter(x => x !== "");
+      if (k === SETTING_KEYS.evergreen && rest[0] != null) setInt(rest[0], "evergreenPerDay");
+      else if (k === SETTING_KEYS.total && rest[0] != null) setInt(rest[0], "totalPerDay");
+      else if (k === SETTING_KEYS.treat && rest.length) s.treatDays = parseTreatDays(rest.join(","));
+    });
+  }
+  return s;
+}
+
+/* ---------- selection engine ---------- */
+function fill(order, target, doy) {
+  const picks = [];
+  if (!order.length || target <= 0) return picks;
+  const taken = new Map();
+  while (picks.length < target) {
+    let progressed = false;
+    for (const ch of order) {
+      if (picks.length >= target) break;
+      const t = taken.get(ch) || 0, n = ch.videos.length;
+      if (t >= n) continue;
+      const idx = (((doy - 1 + t) % n) + n) % n;
+      picks.push({ channel: ch.name, type: ch.type, title: ch.videos[idx].title, id: ch.videos[idx].id, idx: idx + 1, of: n });
+      taken.set(ch, t + 1);
+      progressed = true;
+    }
+    if (!progressed) break;
+  }
+  return picks;
+}
+function selectForDate(date, channels, settings) {
+  const doy = dayOfYear(date), seed = dateSeed(date);
+  const isTreat = settings.treatDays.includes(date.getDay());
+  const evergreenChs = channels.filter(c => c.type === "evergreen");
+  const treatChs = channels.filter(c => c.type === "treat");
+  let evergreenCount, treatCount;
+  if (isTreat) {
+    evergreenCount = Math.max(0, Math.min(settings.evergreenPerDay, settings.totalPerDay));
+    treatCount = Math.max(0, settings.totalPerDay - evergreenCount);
+  } else {
+    evergreenCount = Math.max(0, settings.totalPerDay);
+    treatCount = 0;
+  }
+  const everOrder = rotate(evergreenChs, evergreenChs.length ? (doy - 1) % evergreenChs.length : 0);
+  const treatOrder = seededShuffle(treatChs, mulberry32(seed));
+  const evergreenPicks = fill(everOrder, evergreenCount, doy);
+  const treatPicks = fill(treatOrder, treatCount, doy);
+  const display = seededShuffle(evergreenPicks.concat(treatPicks), mulberry32(seed ^ 0x9e3779b9));
+  return { display, isTreat, evergreenCount, treatCount, totalPerDay: settings.totalPerDay };
+}
+
+/* ---------- rendering ---------- */
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
+function render(items) {
+  grid.innerHTML = "";
+  items.forEach(item => {
+    const btn = document.createElement("button");
+    btn.className = "tile";
+    btn.onclick = () => openVideo(item.id);
+    const img = document.createElement("img");
+    img.className = "thumb"; img.loading = "lazy";
+    img.src = `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`;
+    img.onerror = () => { img.src = `https://i.ytimg.com/vi/${item.id}/mqdefault.jpg`; };
+    const label = document.createElement("div");
+    label.className = "label"; label.textContent = item.title || "Video";
+    btn.appendChild(img); btn.appendChild(label); grid.appendChild(btn);
+  });
+}
+function renderDebug(sel, date, child) {
+  const el = document.getElementById("debug");
+  el.style.display = "block";
+  const L = [];
+  if (child) L.push(`Child: ${child}`);
+  L.push(`Date: ${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}  (${DAY_NAMES[date.getDay()]}, day ${dayOfYear(date)} of year)`);
+  L.push(`Treat day: ${sel.isTreat ? "yes" : "no"}    Total cap: ${sel.totalPerDay}    Evergreen slots: ${sel.evergreenCount}    Treat slots: ${sel.treatCount}`);
+  L.push(`Showing ${sel.display.length} video(s):`);
+  sel.display.forEach(v => L.push(`   [${v.type}] ${v.channel} — ${v.title}  (video #${v.idx} of ${v.of})`));
+  el.textContent = L.join("\n");
+}
+function setHeader(child) {
+  const switchable = child && CHILDREN.length >= 2;
+  headerEl.innerHTML = child
+    ? `Ball Runs <span class="dot">&#9679;</span> <span class="who">${esc(child)}</span>`
+    : `Ball Runs <span class="dot">&#9679;</span>`;
+  headerEl.classList.toggle("switchable", !!switchable);
+  headerEl.onclick = switchable ? showPicker : null;
+}
+
+/* ---------- YouTube player ---------- */
+let ytReady = false, player = null, pendingId = null;
+window.onYouTubeIframeAPIReady = () => { ytReady = true; if (pendingId) { startPlayer(pendingId); pendingId = null; } };
+(function () { const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(s); })();
+function openVideo(id) { overlay.classList.add("show"); closeBtn.style.display = "block"; if (ytReady) startPlayer(id); else pendingId = id; }
+function startPlayer(id) {
+  if (player) { player.loadVideoById(id); return; }
+  player = new YT.Player("player", {
+    width: "100%", height: "100%", videoId: id,
+    playerVars: { autoplay: 1, rel: 0, modestbranding: 1, playsinline: 1, fs: 1, iv_load_policy: 3, origin: location.origin },
+    events: { onReady: e => e.target.playVideo(), onStateChange: e => { if (e.data === YT.PlayerState.ENDED) closeVideo(); } }
+  });
+}
+function closeVideo() { overlay.classList.remove("show"); closeBtn.style.display = "none"; if (player) { try { player.stopVideo(); } catch (_) {} } }
+closeBtn.onclick = closeVideo;
+
+/* ---------- test mode ---------- */
+function isTestMode() { return new URLSearchParams(location.search).get("test") === "1"; }
+function currentChildParam() { return new URLSearchParams(location.search).get("child"); }
+function setupTestBar(date, child) {
+  const bar = document.getElementById("testbar");
+  bar.style.display = "flex";
+  const input = document.getElementById("testdate");
+  input.value = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+  const childQ = child ? `&child=${encodeURIComponent(child)}` : "";
+  input.onchange = () => { location.search = `?test=1&date=${input.value}${childQ}`; };
+  document.getElementById("todayBtn").onclick = () => { location.search = `?test=1${childQ}`; };
+}
+
+/* ---------- views ---------- */
+function showPicker() {
+  grid.classList.remove("show");
+  document.getElementById("debug").style.display = "none";
+  document.getElementById("testbar").style.display = "none";
+  setHeader(null);
+  picker.innerHTML = "";
+  CHILDREN.forEach((name, i) => {
+    const b = document.createElement("button");
+    b.className = "namebtn";
+    b.textContent = name;
+    b.style.background = NAME_COLORS[i % NAME_COLORS.length];
+    b.onclick = () => showForChild(name);
+    picker.appendChild(b);
+  });
+  picker.classList.add("show");
+}
+function showForChild(child) {
+  picker.classList.remove("show");
+  grid.classList.add("show");
+  setHeader(child);
+  const channels = buildChannels(rowsForChild(RAW, child));
+  const date = effectiveDate();
+  const sel = selectForDate(date, channels, SETTINGS);
+  render(sel.display);
+  if (isTestMode()) { setupTestBar(date, child); renderDebug(sel, date, child); }
+}
+
+/* ---------- loading ---------- */
+function loadCsv(url, opts) {
+  return new Promise(resolve => {
+    Papa.parse(url, { download: true, skipEmptyLines: true, ...opts,
+      complete: res => resolve(res.data), error: () => resolve(null) });
+  });
+}
+async function boot() {
+  SETTINGS = SETTINGS_CSV_URL
+    ? parseSettings(await loadCsv(SETTINGS_CSV_URL, { header: false }) || [])
+    : { ...DEFAULT_SETTINGS };
+
+  if (VIDEOS_CSV_URL) {
+    const rows = await loadCsv(VIDEOS_CSV_URL, { header: true, transformHeader: h => h.trim().toLowerCase() });
+    RAW = (rows && rows.length) ? rows : DEMO_VIDEOS;
+    if (!RAW.some(r => extractId(r))) { note.textContent = "Videos sheet loaded but no valid rows — check columns (Channel, Type, Title, ID)."; RAW = DEMO_VIDEOS; }
+  } else {
+    if (isTestMode()) note.textContent = "Demo data — set VIDEOS_CSV_URL to use your own sheet.";
+    RAW = DEMO_VIDEOS;
+  }
+
+  CHILDREN = distinctChildren(RAW);
+  const urlChild = currentChildParam();
+  const matched = urlChild && CHILDREN.find(c => c.toLowerCase() === urlChild.toLowerCase());
+
+  if (CHILDREN.length >= 2 && !matched) showPicker();
+  else showForChild(matched || null);
+}
+boot();
+</script>
+</body>
+</html>
