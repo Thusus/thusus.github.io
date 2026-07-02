@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Movie Night</title>
+<style>
+  :root { --bg:#11151c; --tile:#1c2230; --tile-hover:#27304370; --text:#f2f5fa; --muted:#8a93a6; --accent:#ff5a5f; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; height:100%; }
+  body { background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; overflow-x:hidden; }
+
+  #topbar { display:flex; align-items:center; gap:10px; padding:16px 20px 4px; }
+  header { font-size:clamp(22px,3.4vw,32px); font-weight:900; letter-spacing:0.3px; }
+  header .brandname { color:var(--accent); }
+  #note { padding:4px 20px 0; font-size:14px; opacity:0.7; }
+  #note.warn { color:#ffcc66; opacity:0.95; }
+  #debug { display:none; margin:8px 20px 4px; padding:12px 14px; background:#0d1b2a; border:1px solid #24425f; border-radius:12px; font-family:ui-monospace,Menlo,monospace; font-size:12px; line-height:1.5; white-space:pre-wrap; }
+
+  #grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:16px; padding:16px 20px 44px; }
+
+  .tile { background:var(--tile); border:none; border-radius:16px; overflow:hidden; cursor:pointer; padding:0; color:var(--text); text-align:left; transition:transform .12s ease, background .12s ease; display:flex; flex-direction:column; }
+  .tile:active { transform:scale(0.97); }
+  @media (hover:hover){ .tile:hover{ transform:translateY(-3px); background:var(--tile-hover); } }
+  .poster { position:relative; width:100%; aspect-ratio:2/3; background:#0b0f14; display:block; }
+  .poster img { width:100%; height:100%; object-fit:cover; display:block; }
+  .poster .card { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; text-align:center; padding:16px; background:linear-gradient(160deg,#232c40,#161b26); }
+  .poster .card .film { font-size:34px; opacity:0.5; }
+  .poster .card .ct { font-size:clamp(14px,1.7vw,18px); font-weight:800; line-height:1.2; }
+  .label { padding:10px 12px 14px; }
+  .label .lt { font-size:clamp(14px,1.7vw,18px); font-weight:700; line-height:1.2; }
+  .label .ly { font-size:13px; color:var(--muted); margin-top:3px; }
+
+  .empty { grid-column:1 / -1; text-align:center; padding:60px 20px; font-size:clamp(20px,3vw,28px); font-weight:700; opacity:0.6; }
+
+  #overlay { position:fixed; inset:0; background:#000000e8; display:none; z-index:50; align-items:center; justify-content:center; padding:24px; }
+  #overlay.show { display:flex; }
+  #ovcard { display:flex; flex-direction:column; align-items:center; gap:18px; max-width:min(520px,92vw); }
+  #ovposter { width:min(340px,70vw); aspect-ratio:2/3; border-radius:18px; overflow:hidden; background:#161b26; box-shadow:0 20px 60px #000a; }
+  #ovposter img { width:100%; height:100%; object-fit:cover; display:block; }
+  #ovposter .card { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; background:linear-gradient(160deg,#232c40,#161b26); }
+  #ovposter .card .film { font-size:56px; opacity:0.5; }
+  #ovtitle { font-size:clamp(24px,4vw,38px); font-weight:900; text-align:center; line-height:1.15; }
+  #ovyear { color:var(--muted); font-size:18px; margin-top:-8px; }
+  #ovback { border:none; border-radius:999px; padding:14px 30px; font-size:20px; font-weight:800; background:var(--accent); color:#0b0f14; cursor:pointer; }
+  #ovback:active { transform:scale(0.96); }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <header><span class="brandname">Movie</span> Night</header>
+</div>
+<div id="note"></div>
+<div id="debug"></div>
+
+<div id="grid"></div>
+
+<div id="overlay">
+  <div id="ovcard">
+    <div id="ovposter"></div>
+    <div id="ovtitle"></div>
+    <div id="ovyear"></div>
+    <button id="ovback">&#8592; Back to the list</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+/* =========================================================================
+   MOVIE NIGHT — a simple poster wall the kids can browse and pick from.
+
+   Two published Google Sheets CSV links (one per tab). That's all you edit.
+
+   MOVIES sheet (header row). Only "Title" is required:
+        Title | Wiki | Year | Poster
+     - Title  : the movie name (shown under the poster).
+     - Wiki   : the easy way to get a poster. Paste the Wikipedia article link,
+                e.g.  https://en.wikipedia.org/wiki/Spy_Kids_(film)
+                A bare article title ("Spy Kids (film)") also works. The poster
+                comes from that exact article, so it beats guessing from Title.
+                TIP: if a plain name lands on a "disambiguation" page (see the
+                ?test=1 panel), paste the full article link instead.
+     - Year   : (optional) shown under the title; also helps the Title fallback.
+     - Poster : (optional) an override that WINS over Wiki. Accepts any of:
+                  * a direct image file URL (ends in .jpg / .png), or
+                  * a Wikipedia image link (the ".../#/media/File:Xxx.jpg" kind
+                    you get from clicking a poster on Wikipedia), or
+                  * a Wikipedia article link.
+                Leave it blank and let Wiki do the work in most cases.
+
+     Poster is chosen per row, in this order:
+       1. Poster column (resolved as above), if given.
+       2. The Wiki article (link or title).
+       3. Title-only guess: "Title (YEAR film)" -> "Title (film)" -> "Title".
+       4. A plain text card with the title — so nothing ever looks broken.
+
+   SETTINGS sheet: a list of name/value rows. This app reads one:
+        Movie Night Max Movies | 8
+     - Cell B = how many movies to show. Blank = show them all.
+
+   NOTE: the Wikipedia lookups need this page hosted or served (GitHub Pages,
+   or a local server) — that's already how you run kidstube. If a lookup is
+   ever blocked you'll see a reason in the ?test=1 panel.
+
+   Test helper: add ?test=1 to the URL for a panel showing exactly where each
+   poster came from, and the precise reason for any that don't load.
+   ========================================================================= */
+
+const MOVIES_CSV_URL   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv_zZ3Ti03lvqwCYtstvOLNPPzlVc7PsQpxzfuybhU0tg9YsF08bAeHGMWbNzGvLxxIZauiA_8tQSt/pub?gid=1596715932&single=true&output=csv";
+const SETTINGS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv_zZ3Ti03lvqwCYtstvOLNPPzlVc7PsQpxzfuybhU0tg9YsF08bAeHGMWbNzGvLxxIZauiA_8tQSt/pub?gid=2126360128&single=true&output=csv";
+
+/* When "Movie Night Max Movies" trims the list, which ones show?
+     "daily" = a fresh seeded-random pick, stable through the day.
+     "first" = simply the first N rows in the sheet.                          */
+const SELECTION = "daily";
+
+/* --------------------------- nothing below needs editing ------------------ */
+const FILM = "\uD83C\uDFAC";
+const WIKI_API = "https://en.wikipedia.org/w/api.php";
+let FETCH_BLOCKED = false;
+
+const norm = s => String(s == null ? "" : s).trim().toLowerCase();
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
+function hashStr(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619);} return h>>>0; }
+function mulberry32(a){ return function(){ a|=0;a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return((t^t>>>14)>>>0)/4294967296; }; }
+function seededShuffle(arr,rng){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function dateSeed(){ const n=new Date(); return n.getFullYear()*10000 + (n.getMonth()+1)*100 + n.getDate(); }
+function isTest(){ return new URLSearchParams(location.search).get("test")==="1"; }
+
+const gridEl = document.getElementById("grid");
+const noteEl = document.getElementById("note");
+const overlay = document.getElementById("overlay");
+
+/* ---------- parsing ---------- */
+function firstVal(r, keys){ for(const k of keys){ const v=r[k]; if(v!=null && String(v).trim()!=="") return String(v).trim(); } return ""; }
+function parseMovies(rows){
+  return rows.map(r => ({
+    title:  firstVal(r, ["title","movie","name"]),
+    wiki:   firstVal(r, ["wiki","wikipedia","link","url"]),
+    year:   firstVal(r, ["year"]),
+    poster: firstVal(r, ["poster","poster url","poster_url","image","thumbnail"]),
+  })).filter(m => m.title);
+}
+function parseMaxMovies(grid){
+  for(const row of (grid||[])){
+    if(norm(row[0])==="movie night max movies"){
+      const n=parseInt(String(row[1]||"").trim(),10);
+      return (!isNaN(n) && n>0) ? n : null;
+    }
+  }
+  return null;
+}
+function applyCap(list, max){
+  if(!max || max>=list.length) return list;
+  if(SELECTION==="daily") return seededShuffle(list, mulberry32(dateSeed())).slice(0,max);
+  return list.slice(0, max);
+}
+
+/* ---------- Wikipedia helpers ---------- */
+function wikiTitleFrom(input){
+  const s = String(input||"").trim();
+  const m = s.match(/wikipedia\.org\/wiki\/([^?#]+)/i);
+  if(m){ let t=m[1]; try{ t=decodeURIComponent(t); }catch(_){} return t.replace(/_/g," ").trim(); }
+  return s;
+}
+function fileNameFrom(url){
+  const m = String(url||"").match(/File:([^?#&]+\.(?:jpe?g|png|gif|svg|webp))/i);
+  if(!m) return null;
+  let f=m[1]; try{ f=decodeURIComponent(f); }catch(_){}
+  return "File:"+f;
+}
+async function wikiJson(params){
+  const url = WIKI_API + "?" + params + "&format=json&origin=*";
+  try{ const r=await fetch(url); return await r.json(); }
+  catch(_){ FETCH_BLOCKED=true; return null; }
+}
+// article title -> { src, reason }
+async function wikiPageThumb(title){
+  const j = await wikiJson("action=query&prop=pageimages|pageprops&ppprop=disambiguation&piprop=thumbnail&pithumbsize=600&pilicense=any&redirects=1&titles="+encodeURIComponent(title));
+  if(!j) return { src:null, reason:"fetch blocked (CORS/network)" };
+  const pages = (j.query && j.query.pages) || {};
+  const page = Object.values(pages)[0];
+  if(!page || page.missing!==undefined || page.pageid===undefined) return { src:null, reason:"no Wikipedia page by that name" };
+  if(page.pageprops && page.pageprops.disambiguation!==undefined) return { src:null, reason:"disambiguation page — use the exact article link" };
+  if(page.thumbnail && page.thumbnail.source) return { src:page.thumbnail.source, reason:"ok" };
+  return { src:null, reason:"page has no poster image" };
+}
+// File:Xxx.jpg -> direct image url (or null)
+async function wikiFileUrl(fileTitle){
+  const j = await wikiJson("action=query&prop=imageinfo&iiprop=url&iiurlwidth=600&titles="+encodeURIComponent(fileTitle));
+  if(!j) return null;
+  const page = Object.values((j.query && j.query.pages) || {})[0];
+  const ii = page && page.imageinfo && page.imageinfo[0];
+  return ii ? (ii.thumburl || ii.url) : null;
+}
+
+/* ---------- poster resolution ---------- */
+async function resolvePoster(m){
+  // 1. Poster override
+  if(m.poster){
+    const p = m.poster;
+    if(/wik(?:ipedia|imedia)\.org/i.test(p)){
+      const file = fileNameFrom(p);
+      if(file){ const u=await wikiFileUrl(file); return u ? {src:u, from:"Poster (Wikipedia image)"} : {src:null, from:"Poster: that File: wasn't found"}; }
+      if(/\/wiki\//i.test(p)){ const res=await wikiPageThumb(wikiTitleFrom(p)); return res.src ? {src:res.src, from:"Poster (article link)"} : {src:null, from:"Poster link: "+res.reason}; }
+    }
+    return { src:p, from:"Poster URL (direct)" };   // assume a direct image URL
+  }
+  // 2. Wiki column
+  let wikiReason = null;
+  if(m.wiki){
+    const t = wikiTitleFrom(m.wiki);
+    const res = await wikiPageThumb(t);
+    if(res.src) return { src:res.src, from:'Wiki "'+t+'"' };
+    wikiReason = 'Wiki "'+t+'": '+res.reason;
+  }
+  // 3. Title guesses
+  const cands=[];
+  if(m.year) cands.push(`${m.title} (${m.year} film)`);
+  cands.push(`${m.title} (film)`);
+  cands.push(m.title);
+  let lastReason = null;
+  for(const c of cands){ const res=await wikiPageThumb(c); if(res.src) return { src:res.src, from:'guess "'+c+'"' }; lastReason=res.reason; }
+  return { src:null, from: wikiReason || ('Title "'+m.title+'": '+(lastReason||"no image found")) };
+}
+
+/* ---------- diagnostics (?test=1) ---------- */
+const DEBUG = new Map();
+function setDebug(title, msg){ if(!isTest()) return; DEBUG.set(title, msg); renderDebug(); }
+function renderDebug(){
+  if(!isTest()) return;
+  const el=document.getElementById("debug"); el.style.display="block";
+  const lines=[...DEBUG.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([t,m])=>`  ${t} — ${m}`);
+  el.textContent = `${DEBUG.size} movie(s) shown. Poster source / status:\n` + lines.join("\n");
+}
+
+/* ---------- rendering ---------- */
+function textCard(title){ return `<div class="card"><div class="film">${FILM}</div><div class="ct">${esc(title)}</div></div>`; }
+
+function render(movies){
+  gridEl.innerHTML="";
+  if(!movies.length){ const d=document.createElement("div"); d.className="empty"; d.textContent="No movies in the list yet"; gridEl.appendChild(d); return; }
+
+  movies.forEach(m => {
+    const btn = document.createElement("button"); btn.className="tile";
+    const posterBox = document.createElement("div"); posterBox.className="poster";
+    posterBox.innerHTML = textCard(m.title);
+    const label = document.createElement("div"); label.className="label";
+    label.innerHTML = `<div class="lt">${esc(m.title)}</div>` + (m.year?`<div class="ly">${esc(m.year)}</div>`:"");
+    btn.appendChild(posterBox); btn.appendChild(label);
+    btn.onclick = ()=>openPick(m);
+    gridEl.appendChild(btn);
+
+    resolvePoster(m).then(res => {
+      m._poster = res.src;
+      setDebug(m.title, res.from);
+      maybeWarnFetch();
+      if(!res.src) return;
+      const img = document.createElement("img");
+      img.referrerPolicy = "no-referrer"; img.alt = m.title;
+      img.onload  = ()=>{ const c=posterBox.querySelector(".card"); if(c) c.remove(); setDebug(m.title, res.from+" \u2713 shown"); };
+      img.onerror = ()=>{ img.remove(); setDebug(m.title, res.from+" \u2717 image failed to load"); };
+      posterBox.appendChild(img);          // attach before setting src so the load isn't deferred
+      img.src = res.src;
+    });
+  });
+}
+
+function openPick(m){
+  document.getElementById("ovtitle").textContent = m.title;
+  document.getElementById("ovyear").textContent  = m.year || "";
+  const box = document.getElementById("ovposter");
+  if(m._poster){ box.innerHTML=""; const img=new Image(); img.referrerPolicy="no-referrer"; img.alt=m.title; img.src=m._poster; box.appendChild(img); }
+  else { box.innerHTML = `<div class="card"><div class="film">${FILM}</div></div>`; }
+  overlay.classList.add("show");
+}
+function closePick(){ overlay.classList.remove("show"); }
+document.getElementById("ovback").onclick = closePick;
+overlay.addEventListener("click", e=>{ if(e.target===overlay) closePick(); });
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") closePick(); });
+
+function maybeWarnFetch(){
+  if(FETCH_BLOCKED && !noteEl.dataset.warned){
+    noteEl.dataset.warned="1"; noteEl.className="warn";
+    noteEl.textContent = "Couldn't reach Wikipedia for posters. If you opened the file directly (file://), serve it instead (a local server or GitHub Pages).";
+  }
+}
+
+/* ---------- load ---------- */
+function loadCsv(url, opts){ return new Promise(res=>{ if(!url) return res(null); Papa.parse(url,{ download:true, skipEmptyLines:true, ...opts, complete:r=>res(r.data), error:()=>res(null) }); }); }
+
+async function boot(){
+  const [moRows, seGrid] = await Promise.all([
+    loadCsv(MOVIES_CSV_URL,   { header:true, transformHeader:h=>h.trim().toLowerCase() }),
+    loadCsv(SETTINGS_CSV_URL, { header:false }),
+  ]);
+  let movies = (moRows && moRows.length) ? parseMovies(moRows) : [];
+  const max = seGrid ? parseMaxMovies(seGrid) : null;
+  movies = applyCap(movies, max);
+  if(isTest() && max) noteEl.textContent = `Max Movies = ${max} (${SELECTION==="daily"?"daily pick":"first "+max})`;
+  render(movies);
+}
+boot();
+</script>
+</body>
+</html>
