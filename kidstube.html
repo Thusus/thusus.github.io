@@ -6,81 +6,62 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>KidsTube</title>
 <style>
-  :root {
-    --bg: #11151c;
-    --tile: #1c2230;
-    --tile-hover: #27304370;
-    --text: #f2f5fa;
-    --accent: #ffcc33;
-  }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; height: 100%; }
-  body {
-    background: var(--bg); color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    overflow-x: hidden;
-  }
-  header {
-    padding: 18px 22px 4px; font-size: clamp(20px, 3vw, 30px);
-    font-weight: 800; letter-spacing: 0.5px;
-  }
-  header .dot { color: var(--accent); }
-  header .who { opacity: 0.85; font-weight: 700; }
-  header.switchable { cursor: pointer; }
-  #note { padding: 0 22px; font-size: 14px; opacity: 0.6; min-height: 0; }
+  :root { --bg:#11151c; --tile:#1c2230; --tile-hover:#27304370; --text:#f2f5fa; --accent:#ff5a5f; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; height:100%; }
+  body { background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; overflow-x:hidden; }
 
-  /* Child picker */
-  #picker { display: none; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px; padding: 24px 22px 40px; }
-  #picker.show { display: grid; }
-  .namebtn {
-    border: none; border-radius: 24px; padding: 46px 20px;
-    font-size: clamp(24px, 4vw, 40px); font-weight: 800; color: #0b0f14;
-    cursor: pointer; text-align: center; transition: transform 0.12s ease;
-  }
-  .namebtn:active { transform: scale(0.96); }
-  @media (hover: hover) { .namebtn:hover { transform: translateY(-3px); } }
+  #topbar { display:flex; align-items:center; gap:10px; padding:16px 20px 4px; }
+  #back { display:none; width:44px; height:44px; border-radius:50%; border:none; background:#1c2230; color:var(--text); font-size:26px; line-height:1; cursor:pointer; flex:0 0 auto; }
+  #back.show { display:block; }
+  header { font-size:clamp(22px,3.4vw,32px); font-weight:900; letter-spacing:0.3px; }
+  header .brandname { color:var(--accent); }
+  #note { padding:0 20px; font-size:14px; opacity:0.6; }
 
-  /* Test tools (only shown with ?test=1) */
-  #testbar {
-    display: none; gap: 10px; align-items: center; flex-wrap: wrap;
-    margin: 8px 22px; padding: 10px 14px;
-    background: #0d1b2a; border: 1px solid #24425f; border-radius: 12px; font-size: 14px;
-  }
-  #testbar input[type=date] { font-size: 15px; padding: 4px 8px; border-radius: 8px; border: 1px solid #35506b; background: #0a121b; color: var(--text); }
-  #testbar button { font-size: 14px; padding: 5px 12px; border-radius: 8px; border: 1px solid #35506b; background: #16283b; color: var(--text); cursor: pointer; }
-  #debug {
-    display: none; margin: 4px 22px 20px; padding: 12px 14px;
-    background: #0d1b2a; border: 1px solid #24425f; border-radius: 12px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap;
-  }
+  #testbar { display:none; gap:10px; align-items:center; flex-wrap:wrap; margin:8px 20px; padding:10px 14px; background:#0d1b2a; border:1px solid #24425f; border-radius:12px; font-size:14px; }
+  #testbar input[type=date] { font-size:15px; padding:4px 8px; border-radius:8px; border:1px solid #35506b; background:#0a121b; color:var(--text); }
+  #testbar button { font-size:14px; padding:5px 12px; border-radius:8px; border:1px solid #35506b; background:#16283b; color:var(--text); cursor:pointer; }
+  #debug { display:none; margin:4px 20px 20px; padding:12px 14px; background:#0d1b2a; border:1px solid #24425f; border-radius:12px; font-family:ui-monospace,Menlo,monospace; font-size:13px; line-height:1.5; white-space:pre-wrap; }
 
-  #grid { display: none; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; padding: 16px 22px 40px; }
-  #grid.show { display: grid; }
-  .tile {
-    background: var(--tile); border: none; border-radius: 18px; overflow: hidden;
-    cursor: pointer; padding: 0; color: var(--text); text-align: left;
-    transition: transform 0.12s ease, background 0.12s ease; display: flex; flex-direction: column;
-  }
-  .tile:active { transform: scale(0.97); }
-  @media (hover: hover) { .tile:hover { transform: translateY(-3px); background: var(--tile-hover); } }
-  .tile .thumb { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: #000; }
-  .tile .label { padding: 12px 14px 16px; font-size: clamp(16px, 2vw, 20px); font-weight: 700; line-height: 1.25; }
+  .screen { display:none; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; padding:16px 20px 40px; }
+  .screen.show { display:grid; }
+  #picker { grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); }
 
-  /* Player overlay */
-  #overlay { position: fixed; inset: 0; background: #000; display: none; z-index: 50; }
-  #overlay.show { display: block; }
-  #player, #overlay iframe { width: 100%; height: 100%; border: 0; display: block; }
-  #close {
-    position: fixed; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right));
-    z-index: 60; width: 64px; height: 64px; border-radius: 50%; border: none;
-    background: #000000aa; color: #fff; font-size: 34px; line-height: 1; cursor: pointer; display: none;
-  }
-  #overlay.show ~ #close { display: block; }
+  .namebtn { border:none; border-radius:24px; padding:46px 20px; font-size:clamp(24px,4vw,40px); font-weight:800; color:#0b0f14; cursor:pointer; text-align:center; transition:transform .12s ease; }
+  .namebtn:active { transform:scale(0.96); }
+
+  .tile { background:var(--tile); border:none; border-radius:18px; overflow:hidden; cursor:pointer; padding:0; color:var(--text); text-align:left; transition:transform .12s ease, background .12s ease; display:flex; flex-direction:column; }
+  .tile:active { transform:scale(0.97); }
+  @media (hover:hover){ .tile:hover{ transform:translateY(-3px); background:var(--tile-hover); } .namebtn:hover{ transform:translateY(-3px);} }
+  .tile .thumb { width:100%; aspect-ratio:16/9; object-fit:cover; display:block; background:#000; }
+  .tile .label { padding:12px 14px 16px; font-size:clamp(16px,2vw,20px); font-weight:700; line-height:1.25; }
+
+  .mosaic { display:grid; width:100%; aspect-ratio:16/9; gap:2px; background:#000; }
+  .mosaic.n1 { grid-template-columns:1fr; }
+  .mosaic.n2 { grid-template-columns:1fr 1fr; }
+  .mosaic.n3, .mosaic.n4 { grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; }
+  .mosaic.n3 img:first-child { grid-column:1 / span 2; }
+  .mosaic img { width:100%; height:100%; object-fit:cover; }
+
+  .empty { grid-column:1 / -1; text-align:center; padding:60px 20px; font-size:clamp(20px,3vw,28px); font-weight:700; opacity:0.6; }
+
+  #overlay { position:fixed; inset:0; background:#000; display:none; z-index:50; }
+  #overlay.show { display:block; }
+  #player, #overlay iframe { width:100%; height:100%; border:0; display:block; }
+  #tapcatch { position:absolute; inset:0; z-index:10; background:transparent; }
+  #flash { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:11; width:96px; height:96px; border-radius:50%; background:#000000aa; display:none; pointer-events:none; background-repeat:no-repeat; background-position:center; background-size:42px; }
+  #flash.show { display:block; animation:flashfade .5s ease forwards; }
+  @keyframes flashfade { from{opacity:1;transform:translate(-50%,-50%) scale(1);} to{opacity:0;transform:translate(-50%,-50%) scale(1.3);} }
+  #close { position:fixed; top:max(14px,env(safe-area-inset-top)); right:max(14px,env(safe-area-inset-right)); z-index:60; width:64px; height:64px; border-radius:50%; border:none; background:#000000aa; color:#fff; font-size:34px; line-height:1; cursor:pointer; display:none; }
+  #overlay.show ~ #close { display:block; }
 </style>
 </head>
 <body>
 
-<header id="header">KidsTube <span class="dot">&#9679;</span></header>
+<div id="topbar">
+  <button id="back" aria-label="Back">&#8249;</button>
+  <header id="header"><span class="brandname">Kids</span>Tube</header>
+</div>
 <div id="note"></div>
 
 <div id="testbar">
@@ -91,329 +72,311 @@
 </div>
 <div id="debug"></div>
 
-<div id="picker"></div>
-<div id="grid"></div>
+<div id="picker" class="screen"></div>
+<div id="channels" class="screen"></div>
+<div id="grid" class="screen"></div>
 
-<div id="overlay"><div id="player"></div></div>
+<div id="overlay"><div id="player"></div><div id="tapcatch"></div><div id="flash"></div></div>
 <button id="close" aria-label="Back">&times;</button>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
 /* =========================================================================
-   CONFIG  —  the only part you edit.
+   CONFIG — the only part you edit. Three published CSV links (one per tab).
 
-   Two published CSV links (File > Share > Publish to web > CSV), one per tab.
+   CHANNELS sheet (header row):
+        Channel Name | URL | Availability Level | Videos Per Day | Child
+     - URL is ignored by the app (metadata for future auto-populate).
+     - Availability Level = a level name defined in the Settings sheet.
+     - Videos Per Day = blank shows all; a number shows that many seeded-random
+       ones (stable through the day).
+     - Child = blank shows to all kids.
 
-   VIDEOS sheet — one row per video, WITH a header row:
-        Child , Channel , Type , Title , ID
-     - Child  = which kid this video belongs to. Blank = shown to ALL kids.
-                If 2+ distinct names exist, an opening name-picker appears.
-     - Type   = "evergreen" or "treat" (a property of the channel; fill down).
-     - ID     = 11-char YouTube id, e.g. 0sHu99vdz-A. A "URL" column works too.
-     - Row order within a channel = the cycle order (video #1, #2, #3 ...).
+   VIDEOS sheet (header row):
+        Title | Channel | ID | Availability Override
+     - Channel must match a Channel Name.  ID = 11-char YouTube id (URL ok too).
+     - Availability Override = a level name that replaces the channel's level for
+       just this video (e.g. "Blocked" to hide, "Everyday" to force-show). Blank
+       = follow the channel.
 
-   SETTINGS sheet — either layout works:
-     (a) setting names across the top row, values beneath (treat days can be
-         stacked down the column):
-            Evergreen videos per day | Total videos per day | Days for Treat videos
-            2                        | 10                   | Wednesday
-                                     |                      | Sunday
-     (b) setting name in column A, value in column B:
-            Evergreen videos per day , 2
-            Total videos per day     , 10
-            Days for Treat videos    , Wednesday, Sunday
+   SETTINGS sheet = a levels table plus one special row:
+        Level     | Days
+        Everyday  | Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday
+        Weekdays  | Monday,Tuesday,Wednesday,Thursday,Friday
+        Weekends  | Saturday,Sunday
+        Blocked   |
+        Global availability override |
+     - Each level maps a name to the weekdays it's available (empty = never).
+     - "Global availability override": blank = channels use their own level; put
+       a level name here to force EVERYTHING (channels + videos) to that level —
+       a master switch to block or open everything temporarily.
+     - Unknown / empty-days levels fail closed (hidden); debug flags them.
 
-   Test helpers:  ?test=1  shows a date picker + debug readout.
-                  ?date=YYYY-MM-DD  jumps to a date.
-                  ?child=Name  pre-selects a child (skips the picker).
+   Test helpers:  ?test=1 (date picker + debug), ?date=YYYY-MM-DD, ?child=Name
    ========================================================================= */
 
+const CHANNELS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv_zZ3Ti03lvqwCYtstvOLNPPzlVc7PsQpxzfuybhU0tg9YsF08bAeHGMWbNzGvLxxIZauiA_8tQSt/pub?gid=1846101874&single=true&output=csv";
 const VIDEOS_CSV_URL   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv_zZ3Ti03lvqwCYtstvOLNPPzlVc7PsQpxzfuybhU0tg9YsF08bAeHGMWbNzGvLxxIZauiA_8tQSt/pub?gid=0&single=true&output=csv";
 const SETTINGS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv_zZ3Ti03lvqwCYtstvOLNPPzlVc7PsQpxzfuybhU0tg9YsF08bAeHGMWbNzGvLxxIZauiA_8tQSt/pub?gid=493100322&single=true&output=csv";
 
-const DEFAULT_SETTINGS = { evergreenPerDay: 2, totalPerDay: 4, treatDays: [6, 0] }; // Sat, Sun
-
-// Built-in demo (real Jelle's Marble Runs videos) with two kids, used only if
-// VIDEOS_CSV_URL is blank.
-const DEMO_VIDEOS = [
-  { child: "Sam", channel: "Marble Rally", type: "evergreen", title: "Marble Rally: Race 1", id: "SKDJF3cB438" },
-  { child: "Sam", channel: "Marble Rally", type: "evergreen", title: "Marble Rally: Round 2", id: "1MlyJQCv_Lo" },
-  { child: "Ada", channel: "Sand Marbles", type: "evergreen", title: "Sand Marble Race: Round 1", id: "0sHu99vdz-A" },
-  { child: "Ada", channel: "Sand Marbles", type: "treat",     title: "Sand Marble Practice", id: "eBZL80a8pKs" },
-  { child: "",    channel: "Marble Rally", type: "evergreen", title: "Marble Rally: Round 3 (all kids)", id: "4ajEgMCyxlU" },
-];
-
+const DEFAULT_LEVELS = { everyday:[0,1,2,3,4,5,6], weekdays:[1,2,3,4,5], weekends:[6,0], blocked:[] };
 const NAME_COLORS = ["#ffcc33","#57d1a0","#68b6ff","#ff8fa3","#c39bff","#ffb570","#8fe3ff","#b6e36b"];
 
-/* ----------------------- nothing below needs editing ---------------------- */
+// Demo data (used only if the URLs above are blank)
+const DEMO_CHANNELS = [
+  { name:"Ball Runs", url:"", level:"Everyday", videosPerDay:null, child:"Sam" },
+  { name:"Sand Marbles", url:"", level:"Weekends", videosPerDay:1, child:"Sam" },
+  { name:"Shared", url:"", level:"Everyday", videosPerDay:null, child:"" },
+];
+const DEMO_VIDEOS = [
+  { title:"Marble Rally 1", channel:"Ball Runs", id:"SKDJF3cB438", override:"" },
+  { title:"Marble Rally 2", channel:"Ball Runs", id:"1MlyJQCv_Lo", override:"" },
+  { title:"Marble Rally 3", channel:"Ball Runs", id:"4ajEgMCyxlU", override:"" },
+  { title:"Sand 1", channel:"Sand Marbles", id:"0sHu99vdz-A", override:"" },
+  { title:"Sand 2", channel:"Sand Marbles", id:"eBZL80a8pKs", override:"" },
+  { title:"Shared clip", channel:"Shared", id:"n8nwnN8pnL8", override:"" },
+];
 
-const grid = document.getElementById("grid");
-const picker = document.getElementById("picker");
+/* ----------------------- nothing below needs editing ---------------------- */
+let CHANNELS = [], VIDEOS = [], LEVELS = {}, OVERRIDE = null, CHILDREN = [];
+let CUR_CHILD = null, CUR_VIEW = "picker", TODAY = [];
+
+const pickerEl = document.getElementById("picker");
+const channelsEl = document.getElementById("channels");
+const gridEl = document.getElementById("grid");
+const headerEl = document.getElementById("header");
+const backEl = document.getElementById("back");
 const note = document.getElementById("note");
 const overlay = document.getElementById("overlay");
 const closeBtn = document.getElementById("close");
-const headerEl = document.getElementById("header");
 
-let RAW = [];          // raw video rows
-let SETTINGS = {};
-let CHILDREN = [];     // distinct child names
+/* ---------- helpers ---------- */
+const norm = s => String(s == null ? "" : s).trim().toLowerCase();
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
+function thumb(id){ return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`; }
+function thumbMq(id){ return `https://i.ytimg.com/vi/${id}/mqdefault.jpg`; }
+function hashStr(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619);} return h>>>0; }
 
-/* ---------- date helpers (all local time) ---------- */
-function effectiveDate() {
+function effectiveDate(){
   const p = new URLSearchParams(location.search).get("date");
-  if (p) { const [y, m, d] = p.split("-").map(Number); if (y && m && d) return new Date(y, m - 1, d); }
-  const n = new Date();
-  return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  if (p){ const [y,m,d]=p.split("-").map(Number); if(y&&m&&d) return new Date(y,m-1,d); }
+  const n=new Date(); return new Date(n.getFullYear(),n.getMonth(),n.getDate());
 }
-function dayOfYear(d) { return Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000); }
-function dateSeed(d) { return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
-const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-const WD = { sunday:0,monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6,
-             sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6 };
-function parseTreatDays(str) { return (str || "").split(",").map(x => WD[x.trim().toLowerCase()]).filter(x => x !== undefined); }
+function dateSeed(d){ return d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate(); }
+const DAY_NAMES=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const WD={ sunday:0,monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6, sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6 };
+function parseDays(str){ return (str||"").split(",").map(x=>WD[x.trim().toLowerCase()]).filter(x=>x!==undefined); }
 
-/* ---------- seeded randomness ---------- */
-function mulberry32(a) {
-  return function () {
-    a |= 0; a = a + 0x6D2B79F5 | 0;
-    let t = Math.imul(a ^ a >>> 15, 1 | a);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-function seededShuffle(arr, rng) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
-  return a;
-}
-function rotate(arr, off) {
-  if (!arr.length) return arr;
-  off = ((off % arr.length) + arr.length) % arr.length;
-  return arr.slice(off).concat(arr.slice(0, off));
+function mulberry32(a){ return function(){ a|=0;a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return((t^t>>>14)>>>0)/4294967296; }; }
+function seededShuffle(arr,rng){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function extractId(row){
+  if (row.id && String(row.id).trim()) return String(row.id).trim();
+  if (row.url) { const m=String(row.url).match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/); if(m) return m[1]; }
+  return null;
 }
 
 /* ---------- parsing ---------- */
-function extractId(row) {
-  if (row.id && String(row.id).trim()) return String(row.id).trim();
-  if (row.url) { const m = String(row.url).match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/); if (m) return m[1]; }
-  return null;
+function parseChannels(rows){
+  return rows.map(r => ({
+    name: (r["channel name"]||"").toString().trim(),
+    url: (r["url"]||"").toString().trim(),
+    level: (r["availability level"]||"").toString().trim(),
+    videosPerDay: (()=>{ const v=(r["videos per day"]||"").toString().trim(); if(v==="")return null; const n=parseInt(v,10); return isNaN(n)?null:n; })(),
+    child: (r["child"]||"").toString().trim(),
+  })).filter(c => c.name);
 }
-function buildChannels(rows) {
-  const order = [], byName = new Map();
-  rows.forEach(r => {
-    const id = extractId(r); if (!id) return;
-    const name = (r.channel || "Unknown").toString().trim() || "Unknown";
-    const type = ((r.type || "").toString().trim().toLowerCase() === "treat") ? "treat" : "evergreen";
-    const title = (r.title || "Video").toString().trim() || "Video";
-    if (!byName.has(name)) { const c = { name, type, videos: [] }; byName.set(name, c); order.push(c); }
-    byName.get(name).videos.push({ title, id });
-  });
-  return order;
+function parseVideos(rows){
+  return rows.map(r => ({
+    title: (r["title"]||"Video").toString().trim() || "Video",
+    channel: (r["channel"]||"").toString().trim(),
+    id: extractId(r),
+    override: (r["availability override"]||"").toString().trim(),
+  })).filter(v => v.id);
 }
-function distinctChildren(rows) {
-  const seen = new Set(), out = [];
-  rows.forEach(r => {
-    const c = (r.child || "").toString().trim();
-    if (c && !seen.has(c.toLowerCase())) { seen.add(c.toLowerCase()); out.push(c); }
+function parseSettings(grid){
+  const levels = {}; let override = null;
+  (grid||[]).forEach(row => {
+    const a=(row[0]||"").toString().trim(), b=(row[1]||"").toString().trim();
+    if(!a) return;
+    if(norm(a)==="global availability override"){ override = b || null; return; }
+    if(norm(a)==="level" && norm(b)==="days") return; // header
+    levels[norm(a)] = parseDays(b);
   });
+  return { levels: Object.keys(levels).length ? levels : { ...DEFAULT_LEVELS }, override };
+}
+
+/* ---------- availability engine ---------- */
+function isLevelActive(levelName, date){
+  const days = LEVELS[norm(levelName)];
+  if (!days) return false;                 // unknown or empty-days = fail closed
+  return days.includes(date.getDay());
+}
+function channelAvailable(ch, date){ return isLevelActive(OVERRIDE || ch.level, date); }
+function videoAllowed(v, date){
+  if (OVERRIDE) return isLevelActive(OVERRIDE, date);   // master switch dominates
+  if (norm(v.override)) return isLevelActive(v.override, date);
+  return true;                                          // inherit channel
+}
+function videosForChannel(ch, date){
+  const cands = VIDEOS.filter(v => norm(v.channel)===norm(ch.name) && videoAllowed(v, date));
+  const n = ch.videosPerDay;
+  if (n == null || n >= cands.length) return cands;
+  return seededShuffle(cands, mulberry32(dateSeed(date) ^ hashStr(norm(ch.name)))).slice(0, n);
+}
+function childChannels(child){
+  return CHANNELS.filter(c => child==null || norm(c.child)==="" || norm(c.child)===norm(child));
+}
+function computeToday(child, date){
+  return childChannels(child)
+    .filter(c => channelAvailable(c, date))
+    .map(c => ({ channel:c, videos: videosForChannel(c, date) }))
+    .filter(x => x.videos.length > 0);
+}
+function distinctChildren(channels){
+  const seen=new Set(), out=[];
+  channels.forEach(c=>{ const v=(c.child||"").trim(); if(v && !seen.has(v.toLowerCase())){ seen.add(v.toLowerCase()); out.push(v);} });
   return out;
-}
-function rowsForChild(rows, child) {
-  if (!child) return rows;
-  const t = child.toLowerCase();
-  return rows.filter(r => { const c = (r.child || "").toString().trim(); return c === "" || c.toLowerCase() === t; });
-}
-
-const SETTING_KEYS = { evergreen: "evergreen videos per day", total: "total videos per day", treat: "days for treat videos" };
-function parseSettings(grid) {
-  const s = { ...DEFAULT_SETTINGS };
-  if (!grid || !grid.length) return s;
-  const G = grid.map(row => (row || []).map(c => (c == null ? "" : String(c)).trim()));
-  const header = G[0].map(x => x.toLowerCase());
-  const known = header.filter(h => Object.values(SETTING_KEYS).includes(h)).length;
-  const setInt = (raw, key) => { const n = parseInt(raw, 10); if (!isNaN(n)) s[key] = n; };
-  if (known >= 2) {                                  // column-oriented
-    const col = name => header.indexOf(name);
-    const firstBelow = c => { for (let r = 1; r < G.length; r++) { if (c >= 0 && G[r][c]) return G[r][c]; } return ""; };
-    const allBelow   = c => { const o = []; for (let r = 1; r < G.length; r++) { if (c >= 0 && G[r][c]) o.push(G[r][c]); } return o; };
-    setInt(firstBelow(col(SETTING_KEYS.evergreen)), "evergreenPerDay");
-    setInt(firstBelow(col(SETTING_KEYS.total)), "totalPerDay");
-    const t = allBelow(col(SETTING_KEYS.treat));
-    if (t.length) s.treatDays = parseTreatDays(t.join(","));
-  } else {                                           // key/value rows
-    G.forEach(row => {
-      const k = (row[0] || "").toLowerCase();
-      const rest = row.slice(1).filter(x => x !== "");
-      if (k === SETTING_KEYS.evergreen && rest[0] != null) setInt(rest[0], "evergreenPerDay");
-      else if (k === SETTING_KEYS.total && rest[0] != null) setInt(rest[0], "totalPerDay");
-      else if (k === SETTING_KEYS.treat && rest.length) s.treatDays = parseTreatDays(rest.join(","));
-    });
-  }
-  return s;
-}
-
-/* ---------- selection engine ---------- */
-function fill(order, target, doy) {
-  const picks = [];
-  if (!order.length || target <= 0) return picks;
-  const taken = new Map();
-  while (picks.length < target) {
-    let progressed = false;
-    for (const ch of order) {
-      if (picks.length >= target) break;
-      const t = taken.get(ch) || 0, n = ch.videos.length;
-      if (t >= n) continue;
-      const idx = (((doy - 1 + t) % n) + n) % n;
-      picks.push({ channel: ch.name, type: ch.type, title: ch.videos[idx].title, id: ch.videos[idx].id, idx: idx + 1, of: n });
-      taken.set(ch, t + 1);
-      progressed = true;
-    }
-    if (!progressed) break;
-  }
-  return picks;
-}
-function selectForDate(date, channels, settings) {
-  const doy = dayOfYear(date), seed = dateSeed(date);
-  const isTreat = settings.treatDays.includes(date.getDay());
-  const evergreenChs = channels.filter(c => c.type === "evergreen");
-  const treatChs = channels.filter(c => c.type === "treat");
-  let evergreenCount, treatCount;
-  if (isTreat) {
-    evergreenCount = Math.max(0, Math.min(settings.evergreenPerDay, settings.totalPerDay));
-    treatCount = Math.max(0, settings.totalPerDay - evergreenCount);
-  } else {
-    evergreenCount = Math.max(0, settings.totalPerDay);
-    treatCount = 0;
-  }
-  const everOrder = rotate(evergreenChs, evergreenChs.length ? (doy - 1) % evergreenChs.length : 0);
-  const treatOrder = seededShuffle(treatChs, mulberry32(seed));
-  const evergreenPicks = fill(everOrder, evergreenCount, doy);
-  const treatPicks = fill(treatOrder, treatCount, doy);
-  const display = seededShuffle(evergreenPicks.concat(treatPicks), mulberry32(seed ^ 0x9e3779b9));
-  return { display, isTreat, evergreenCount, treatCount, totalPerDay: settings.totalPerDay };
 }
 
 /* ---------- rendering ---------- */
-function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
-function render(items) {
-  grid.innerHTML = "";
-  items.forEach(item => {
-    const btn = document.createElement("button");
-    btn.className = "tile";
-    btn.onclick = () => openVideo(item.id);
-    const img = document.createElement("img");
-    img.className = "thumb"; img.loading = "lazy";
-    img.src = `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`;
-    img.onerror = () => { img.src = `https://i.ytimg.com/vi/${item.id}/mqdefault.jpg`; };
-    const label = document.createElement("div");
-    label.className = "label"; label.textContent = item.title || "Video";
-    btn.appendChild(img); btn.appendChild(label); grid.appendChild(btn);
-  });
+function setHeader(child){ headerEl.innerHTML = `<span class="brandname">${esc(child||"Kids")}</span>Tube`; }
+function showView(name){
+  pickerEl.classList.toggle("show", name==="picker");
+  channelsEl.classList.toggle("show", name==="channels");
+  gridEl.classList.toggle("show", name==="grid");
+  CUR_VIEW = name;
+  updateBack();
 }
-function renderDebug(sel, date, child) {
-  const el = document.getElementById("debug");
-  el.style.display = "block";
-  const L = [];
-  if (child) L.push(`Child: ${child}`);
-  L.push(`Date: ${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}  (${DAY_NAMES[date.getDay()]}, day ${dayOfYear(date)} of year)`);
-  L.push(`Treat day: ${sel.isTreat ? "yes" : "no"}    Total cap: ${sel.totalPerDay}    Evergreen slots: ${sel.evergreenCount}    Treat slots: ${sel.treatCount}`);
-  L.push(`Showing ${sel.display.length} video(s):`);
-  sel.display.forEach(v => L.push(`   [${v.type}] ${v.channel} — ${v.title}  (video #${v.idx} of ${v.of})`));
-  el.textContent = L.join("\n");
+function updateBack(){
+  const show = (CUR_VIEW==="grid") || (CUR_VIEW==="channels" && CHILDREN.length>=2);
+  backEl.classList.toggle("show", show);
+  backEl.onclick = !show ? null : () => { if (CUR_VIEW==="grid") showChannels(CUR_CHILD); else showPicker(); };
 }
-function setHeader(child) {
-  const switchable = child && CHILDREN.length >= 2;
-  headerEl.innerHTML = child
-    ? `Ball Runs <span class="dot">&#9679;</span> <span class="who">${esc(child)}</span>`
-    : `Ball Runs <span class="dot">&#9679;</span>`;
-  headerEl.classList.toggle("switchable", !!switchable);
-  headerEl.onclick = switchable ? showPicker : null;
-}
+function emptyMsg(txt){ const d=document.createElement("div"); d.className="empty"; d.textContent=txt; return d; }
 
-/* ---------- YouTube player ---------- */
-let ytReady = false, player = null, pendingId = null;
-window.onYouTubeIframeAPIReady = () => { ytReady = true; if (pendingId) { startPlayer(pendingId); pendingId = null; } };
-(function () { const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(s); })();
-function openVideo(id) { overlay.classList.add("show"); closeBtn.style.display = "block"; if (ytReady) startPlayer(id); else pendingId = id; }
-function startPlayer(id) {
-  if (player) { player.loadVideoById(id); return; }
-  player = new YT.Player("player", {
-    width: "100%", height: "100%", videoId: id,
-    playerVars: { autoplay: 1, rel: 0, modestbranding: 1, playsinline: 1, fs: 1, iv_load_policy: 3, origin: location.origin },
-    events: { onReady: e => e.target.playVideo(), onStateChange: e => { if (e.data === YT.PlayerState.ENDED) closeVideo(); } }
-  });
-}
-function closeVideo() { overlay.classList.remove("show"); closeBtn.style.display = "none"; if (player) { try { player.stopVideo(); } catch (_) {} } }
-closeBtn.onclick = closeVideo;
-
-/* ---------- test mode ---------- */
-function isTestMode() { return new URLSearchParams(location.search).get("test") === "1"; }
-function currentChildParam() { return new URLSearchParams(location.search).get("child"); }
-function setupTestBar(date, child) {
-  const bar = document.getElementById("testbar");
-  bar.style.display = "flex";
-  const input = document.getElementById("testdate");
-  input.value = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
-  const childQ = child ? `&child=${encodeURIComponent(child)}` : "";
-  input.onchange = () => { location.search = `?test=1&date=${input.value}${childQ}`; };
-  document.getElementById("todayBtn").onclick = () => { location.search = `?test=1${childQ}`; };
-}
-
-/* ---------- views ---------- */
-function showPicker() {
-  grid.classList.remove("show");
-  document.getElementById("debug").style.display = "none";
-  document.getElementById("testbar").style.display = "none";
+function showPicker(){
   setHeader(null);
-  picker.innerHTML = "";
-  CHILDREN.forEach((name, i) => {
-    const b = document.createElement("button");
-    b.className = "namebtn";
-    b.textContent = name;
-    b.style.background = NAME_COLORS[i % NAME_COLORS.length];
-    b.onclick = () => showForChild(name);
-    picker.appendChild(b);
+  pickerEl.innerHTML="";
+  CHILDREN.forEach((name,i)=>{
+    const b=document.createElement("button"); b.className="namebtn"; b.textContent=name;
+    b.style.background=NAME_COLORS[i%NAME_COLORS.length];
+    b.onclick=()=>showChannels(name);
+    pickerEl.appendChild(b);
   });
-  picker.classList.add("show");
+  showView("picker");
+  document.getElementById("debug").style.display="none";
+  document.getElementById("testbar").style.display="none";
 }
-function showForChild(child) {
-  picker.classList.remove("show");
-  grid.classList.add("show");
+function showChannels(child){
+  CUR_CHILD = child;
   setHeader(child);
-  const channels = buildChannels(rowsForChild(RAW, child));
   const date = effectiveDate();
-  const sel = selectForDate(date, channels, SETTINGS);
-  render(sel.display);
-  if (isTestMode()) { setupTestBar(date, child); renderDebug(sel, date, child); }
+  TODAY = computeToday(child, date);
+  channelsEl.innerHTML="";
+  if(!TODAY.length){ channelsEl.appendChild(emptyMsg("Nothing to watch right now")); }
+  TODAY.forEach(({channel,videos})=>{
+    const btn=document.createElement("button"); btn.className="tile";
+    const ids=videos.slice(0,4).map(v=>v.id);
+    const mos=document.createElement("div"); mos.className="mosaic n"+ids.length;
+    ids.forEach(id=>{ const im=document.createElement("img"); im.loading="lazy"; im.src=thumb(id); im.onerror=()=>{im.src=thumbMq(id);}; mos.appendChild(im); });
+    const label=document.createElement("div"); label.className="label"; label.textContent=channel.name;
+    btn.appendChild(mos); btn.appendChild(label);
+    btn.onclick=()=>showVideos(channel.name);
+    channelsEl.appendChild(btn);
+  });
+  showView("channels");
+  if(isTestMode()){ setupTestBar(date, child); renderDebug(buildDebug(child,date)); }
+}
+function showVideos(channelName){
+  const entry = TODAY.find(x=>norm(x.channel.name)===norm(channelName));
+  const videos = entry ? entry.videos : [];
+  gridEl.innerHTML="";
+  if(!videos.length){ gridEl.appendChild(emptyMsg("Nothing here today")); }
+  videos.forEach(item=>{
+    const btn=document.createElement("button"); btn.className="tile"; btn.onclick=()=>openVideo(item.id);
+    const img=document.createElement("img"); img.className="thumb"; img.loading="lazy";
+    img.src=thumb(item.id); img.onerror=()=>{ img.src=thumbMq(item.id); };
+    const label=document.createElement("div"); label.className="label"; label.textContent=item.title;
+    btn.appendChild(img); btn.appendChild(label); gridEl.appendChild(btn);
+  });
+  showView("grid");
 }
 
-/* ---------- loading ---------- */
-function loadCsv(url, opts) {
-  return new Promise(resolve => {
-    Papa.parse(url, { download: true, skipEmptyLines: true, ...opts,
-      complete: res => resolve(res.data), error: () => resolve(null) });
+/* ---------- debug ---------- */
+function buildDebug(child, date){
+  const L=[];
+  if(child) L.push("Child: "+child);
+  L.push(`Date: ${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}  (${DAY_NAMES[date.getDay()]})`);
+  L.push(`Global override: ${OVERRIDE ? OVERRIDE + (LEVELS[norm(OVERRIDE)] ? "" : "   *** unknown level ***") : "(none — channels use own level)"}`);
+  L.push("Channels for this profile:");
+  const list = childChannels(child);
+  if(!list.length) L.push("   (none tagged for this child)");
+  list.forEach(c=>{
+    const lvl = OVERRIDE || c.level;
+    const known = !!LEVELS[norm(lvl)];
+    const avail = channelAvailable(c,date);
+    const vids = avail ? videosForChannel(c,date).length : 0;
+    L.push(`   ${c.name} — level "${c.level||"(none)"}"${OVERRIDE?` -> override "${OVERRIDE}"`:""} — ${avail?"AVAILABLE":"hidden"} — ${vids} video(s)${known?"":"   *** unknown level ***"}`);
+  });
+  return L.join("\n");
+}
+function renderDebug(text){ const el=document.getElementById("debug"); el.style.display="block"; el.textContent=text; }
+
+/* ---------- YouTube player (sealed: no controls, tap-catch over everything) ---------- */
+let ytReady=false, player=null, pendingId=null;
+window.onYouTubeIframeAPIReady=()=>{ ytReady=true; if(pendingId){ startPlayer(pendingId); pendingId=null; } };
+(function(){ const s=document.createElement("script"); s.src="https://www.youtube.com/iframe_api"; document.head.appendChild(s); })();
+function openVideo(id){ overlay.classList.add("show"); closeBtn.style.display="block"; if(ytReady) startPlayer(id); else pendingId=id; }
+function startPlayer(id){
+  if(player){ player.loadVideoById(id); return; }
+  player=new YT.Player("player",{
+    width:"100%", height:"100%", videoId:id,
+    playerVars:{ autoplay:1, controls:0, rel:0, modestbranding:1, playsinline:1, fs:0, disablekb:1, iv_load_policy:3, origin:location.origin },
+    events:{ onReady:e=>e.target.playVideo(), onStateChange:e=>{ if(e.data===YT.PlayerState.ENDED) closeVideo(); } }
   });
 }
-async function boot() {
-  SETTINGS = SETTINGS_CSV_URL
-    ? parseSettings(await loadCsv(SETTINGS_CSV_URL, { header: false }) || [])
-    : { ...DEFAULT_SETTINGS };
+function closeVideo(){ overlay.classList.remove("show"); closeBtn.style.display="none"; if(player){ try{player.stopVideo();}catch(_){} } }
+closeBtn.onclick=closeVideo;
+const PLAY_ICON="url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'><path d='M8 5v14l11-7z'/></svg>\")";
+const PAUSE_ICON="url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'><path d='M6 5h4v14H6zM14 5h4v14h-4z'/></svg>\")";
+const tapcatch=document.getElementById("tapcatch"), flash=document.getElementById("flash");
+function flashIcon(kind){ flash.style.backgroundImage=kind==="play"?PLAY_ICON:PAUSE_ICON; flash.classList.remove("show"); void flash.offsetWidth; flash.classList.add("show"); }
+tapcatch.addEventListener("click",()=>{ if(!player||!player.getPlayerState) return; if(player.getPlayerState()===YT.PlayerState.PLAYING){ player.pauseVideo(); flashIcon("pause"); } else { player.playVideo(); flashIcon("play"); } });
+tapcatch.addEventListener("contextmenu",e=>e.preventDefault());
 
-  if (VIDEOS_CSV_URL) {
-    const rows = await loadCsv(VIDEOS_CSV_URL, { header: true, transformHeader: h => h.trim().toLowerCase() });
-    RAW = (rows && rows.length) ? rows : DEMO_VIDEOS;
-    if (!RAW.some(r => extractId(r))) { note.textContent = "Videos sheet loaded but no valid rows — check columns (Channel, Type, Title, ID)."; RAW = DEMO_VIDEOS; }
-  } else {
-    if (isTestMode()) note.textContent = "Demo data — set VIDEOS_CSV_URL to use your own sheet.";
-    RAW = DEMO_VIDEOS;
-  }
+/* ---------- test mode + loading ---------- */
+function isTestMode(){ return new URLSearchParams(location.search).get("test")==="1"; }
+function currentChildParam(){ return new URLSearchParams(location.search).get("child"); }
+function setupTestBar(date, child){
+  const bar=document.getElementById("testbar"); bar.style.display="flex";
+  const input=document.getElementById("testdate");
+  input.value=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+  const childQ = child ? `&child=${encodeURIComponent(child)}` : "";
+  input.onchange=()=>{ location.search=`?test=1&date=${input.value}${childQ}`; };
+  document.getElementById("todayBtn").onclick=()=>{ location.search=`?test=1${childQ}`; };
+}
+function loadCsv(url,opts){ return new Promise(res=>{ if(!url) return res(null); Papa.parse(url,{ download:true, skipEmptyLines:true, ...opts, complete:r=>res(r.data), error:()=>res(null) }); }); }
 
-  CHILDREN = distinctChildren(RAW);
+async function boot(){
+  const [chRows, viRows, seGrid] = await Promise.all([
+    loadCsv(CHANNELS_CSV_URL, { header:true, transformHeader:h=>h.trim().toLowerCase() }),
+    loadCsv(VIDEOS_CSV_URL,   { header:true, transformHeader:h=>h.trim().toLowerCase() }),
+    loadCsv(SETTINGS_CSV_URL, { header:false }),
+  ]);
+
+  CHANNELS = (chRows && chRows.length) ? parseChannels(chRows) : DEMO_CHANNELS.slice();
+  VIDEOS   = (viRows && viRows.length) ? parseVideos(viRows)   : DEMO_VIDEOS.slice();
+  const st = seGrid ? parseSettings(seGrid) : { levels:{...DEFAULT_LEVELS}, override:null };
+  LEVELS = st.levels; OVERRIDE = st.override;
+  if (!CHANNELS_CSV_URL && isTestMode()) note.textContent = "Demo data — set the CSV URLs to use your own sheets.";
+
+  CHILDREN = distinctChildren(CHANNELS);
   const urlChild = currentChildParam();
-  const matched = urlChild && CHILDREN.find(c => c.toLowerCase() === urlChild.toLowerCase());
+  const matched = urlChild && CHILDREN.find(c => c.toLowerCase()===urlChild.toLowerCase());
 
   if (CHILDREN.length >= 2 && !matched) showPicker();
-  else showForChild(matched || null);
+  else showChannels(matched || (CHILDREN.length===1 ? CHILDREN[0] : null));
 }
 boot();
 </script>
